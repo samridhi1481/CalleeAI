@@ -1,13 +1,9 @@
-def detect_emergency(text: str) -> bool:
-    emergency_keywords = [
-        "accident", "emergency", "help me", "bleeding", 
-        "unconscious", "not breathing", "danger", "fire"
-    ]
+def detect_emergency(text):
+    emergency_keywords = ["help", "emergency", "danger", "fire", "hurt", "accident"]
+    text_lower = text.lower()
 
-    text = text.lower()
-
-    for word in emergency_keywords:
-        if word in text:
+    for w in emergency_keywords:
+        if w in text_lower:
             return True
 
     return False

@@ -1,80 +1,98 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
 import os
 import uuid
-import subprocess
+from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
+from dotenv import load_dotenv
+from pydub import AudioSegment
+import speech_recognition as sr
+from gtts import gTTS
+import requests
 
-from modules.stt import transcribe_audio
-from modules.ai_engine import generate_reply
-from modules.emergency_detector import detect_emergency
-from modules.tts import text_to_speech
+load_dotenv()
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 app = Flask(__name__)
 CORS(app)
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-# --------------------------
-# Convert WebM → WAV using FFmpeg
-# --------------------------
-def convert_webm_to_wav(webm_path):
-    wav_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.wav")
-
-    cmd = ["ffmpeg", "-y", "-i", webm_path, wav_path]
-    subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    return wav_path
+# Create folders
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("audio", exist_ok=True)
 
 
-# --------------------------
-#  TRANSCRIBE ROUTE
-# --------------------------
+# ------------------------ SPEECH TO TEXT -------------------------
+def speech_to_text(audio_path):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(audio_path) as source:
+        audio_data = recognizer.record(source)
+
+    try:
+        return recognizer.recognize_google(audio_data)
+    except:
+        return "Could not understand the audio."
+
+
+# ------------------------ TEXT TO SPEECH -------------------------
+def text_to_speech(text):
+    filename = f"audio_{uuid.uuid4()}.mp3"
+    filepath = os.path.join("audio", filename)
+
+    tts = gTTS(text=text, lang="en")
+    tts.save(filepath)
+
+    return filename
+
+
+# ------------------------ AI ENGINE (Gemini API) ------------------------
+def ask_ai(prompt):
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent"
+    
+    headers = { "Content-Type": "application/json" }
+    params = { "key": GEMINI_API_KEY }
+
+    data = {
+        "contents": [
+            { "parts": [ { "text": prompt } ] }
+        ]
+    }
+
+    response = requests.post(url, headers=headers, json=data, params=params)
+    res = response.json()
+
+    try:
+        return res["candidates"][0]["content"]["parts"][0]["text"]
+    except:
+        return "Sorry, I could not process that."
+
+
+# ------------------------ ROUTES ------------------------
 @app.route("/transcribe", methods=["POST"])
-def transcribe_route():
-    if "audio" not in request.files:
-        return jsonify({"error": "No audio file provided"}), 400
+def transcribe_audio():
+    file = request.files["audio"]
+    filename = f"{uuid.uuid4()}.wav"
+    filepath = os.path.join("uploads", filename)
+    file.save(filepath)
 
-    audio_file = request.files["audio"]
-
-    # Save uploaded WebM
-    webm_path = os.path.join(UPLOAD_FOLDER, f"{uuid.uuid4()}.webm")
-    audio_file.save(webm_path)
-
-    # Convert WebM → WAV
-    wav_path = convert_webm_to_wav(webm_path)
-
-    # Send to Whisper.cpp
-    text = transcribe_audio(wav_path)
-
+    text = speech_to_text(filepath)
     return jsonify({"text": text})
 
 
-# --------------------------
-#  CHAT ROUTE
-# --------------------------
 @app.route("/chat", methods=["POST"])
-def chat_route():
-    data = request.json
-    user_text = data.get("text", "")
+def chat():
+    user_text = request.json["text"]
 
-    if not user_text:
-        return jsonify({"error": "No text provided"}), 400
-
-    emergency = detect_emergency(user_text)
-    reply = generate_reply(user_text)
-    audio_path = text_to_speech(reply)
+    ai_reply = ask_ai(user_text)
+    audio_file = text_to_speech(ai_reply)
 
     return jsonify({
-        "reply": reply,
-        "audio": audio_path,
-        "emergency": emergency
+        "reply": ai_reply,
+        "audio": f"audio/{audio_file}"
     })
 
 
-@app.route("/", methods=["GET"])
-def home():
-    return "CalleeAI backend running successfully!"
+@app.route("/audio/<path:filename>")
+def serve_audio(filename):
+    return send_from_directory("audio", filename)
 
 
 if __name__ == "__main__":

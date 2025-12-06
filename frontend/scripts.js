@@ -1,11 +1,8 @@
-console.log("scripts.js loaded ✔️");
-
 let mediaRecorder;
 let audioChunks = [];
 
-// Start
+// Start Recording
 document.getElementById("startBtn").onclick = async () => {
-    console.log("Start button clicked");
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
 
@@ -13,7 +10,6 @@ document.getElementById("startBtn").onclick = async () => {
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
 
     mediaRecorder.onstop = async () => {
-        console.log("Recording stopped, sending audio...");
         const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
         sendToTranscribe(audioBlob);
     };
@@ -22,18 +18,18 @@ document.getElementById("startBtn").onclick = async () => {
     console.log("Recording started...");
 };
 
-// Stop
+// Stop Recording
 document.getElementById("stopBtn").onclick = () => {
-    console.log("Stop button clicked");
-    if (mediaRecorder) mediaRecorder.stop();
+    if (mediaRecorder) {
+        mediaRecorder.stop();
+        console.log("Recording stopped.");
+    }
 };
 
-// Send for transcription
+// Send audio to backend
 async function sendToTranscribe(audioBlob) {
     const formData = new FormData();
     formData.append("audio", audioBlob, "recording.wav");
-
-    console.log("Sending blob to backend...");
 
     const response = await fetch("http://127.0.0.1:5000/transcribe", {
         method: "POST",
@@ -41,17 +37,13 @@ async function sendToTranscribe(audioBlob) {
     });
 
     const data = await response.json();
-    console.log("Backend transcription:", data.text);
-
     document.getElementById("transcription").innerText = data.text;
 
     sendTextToChat(data.text);
 }
 
-// Send text to GPT
+// Send text to AI
 async function sendTextToChat(text) {
-    console.log("Sending to /chat:", text);
-
     const response = await fetch("http://127.0.0.1:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,7 +51,12 @@ async function sendTextToChat(text) {
     });
 
     const data = await response.json();
-    console.log("AI Reply:", data.reply);
 
     document.getElementById("reply").innerText = data.reply;
+
+    // Play AI Audio
+    if (data.audio) {
+        const audio = new Audio(`http://127.0.0.1:5000/${data.audio}`);
+        audio.play();
+    }
 }

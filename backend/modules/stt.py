@@ -1,31 +1,11 @@
-import subprocess
-import os
+import speech_recognition as sr
 
-WHISPER_CPP_PATH = r"C:\Users\DELL\Desktop\whisper.cpp\whisper.cpp-master\build\bin\Release\whisper-cli.exe"
-MODEL_PATH = r"C:\Users\DELL\Desktop\whisper.cpp\whisper.cpp-master\models\ggml-base.en.bin"
+def transcribe_audio(file_path):
+    recog = sr.Recognizer()
+    with sr.AudioFile(file_path) as source:
+        audio = recog.record(source)
 
-def transcribe_audio(audio_path):
-    if not os.path.exists(audio_path):
-        return "Audio file not found!"
-
-    output_txt = audio_path + ".txt"
-
-    if os.path.exists(output_txt):
-        os.remove(output_txt)
-
-    cmd = [
-        WHISPER_CPP_PATH,
-        "-m", MODEL_PATH,
-        "-f", audio_path,
-        "-otxt",
-        "--language", "en",
-        "--no-timestamps"
-    ]
-
-    subprocess.run(cmd, capture_output=True, text=True)
-
-    if os.path.exists(output_txt):
-        with open(output_txt, "r", encoding="utf-8") as f:
-            return f.read().strip()
-
-    return "Failed to transcribe audio!"
+    try:
+        return recog.recognize_google(audio)
+    except:
+        return "Could not understand audio."

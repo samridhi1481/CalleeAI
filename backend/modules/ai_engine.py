@@ -1,16 +1,23 @@
-# Simple AI engine for CalleeAI
-# Later we can replace this with Gemini / Llama / local LLM
+import requests
+import os
 
-def generate_reply(user_text: str) -> str:
-    user_text = user_text.lower()
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")  # from .env
 
-    # Basic rule-based bot
-    if "hello" in user_text or "hi" in user_text:
-        return "Hello! How can I assist you today?"
-    if "help" in user_text:
-        return "Sure, I’m here to help. Please tell me what you need."
-    if "problem" in user_text:
-        return "I understand. Can you explain the problem in more detail?"
+def generate_reply(text):
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=" + GOOGLE_API_KEY
 
-    # Default reply
-    return "Thank you for your message. How can I assist you further?"
+    body = {
+        "contents": [
+            {"parts": [{"text": text}]}
+        ]
+    }
+
+    response = requests.post(url, json=body)
+    data = response.json()
+
+    try:
+        reply = data["candidates"][0]["content"]["parts"][0]["text"]
+    except:
+        reply = "Sorry, I could not understand. Please say again."
+
+    return reply

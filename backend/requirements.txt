@@ -1,0 +1,11 @@
+flask
+flask-cors
+requests
+python-dotenv
+pydub
+numpy
+soundfile
+webrtcvad
+SpeechRecognition
+google-generativeai
+

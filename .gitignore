@@ -1,0 +1,29 @@
+### Virtual Environment
+venv/
+
+### Python Cache
+__pycache__/
+*.pyc
+
+### Uploaded & Audio Files
+uploads/
+*.wav
+*.log
+
+### Whisper binaries
+*.exe
+*.dll
+*.bin
+
+### Database files
+*.db
+database/*.db
+
+### OS system files
+.DS_Store
+Thumbs.db
+
+### Build artifacts
+whisper.cpp/
+models/
+
